@@ -49,8 +49,8 @@ const compressItem = async (item) => {
             compress: lz.compress,
             src: (filename) => {
                 return `
-                    const { decompress } = require('lz-utils');
-                    const compressed = require("./${filename}");
+                    import { decompress } from 'lz-utils';
+                    import compressed from "./${filename}";
                     console.log(compressed.length);
                     module.exports = decompress(compressed);
                 `;
@@ -66,11 +66,11 @@ const compressItem = async (item) => {
             },
             src: (filename) => {
                 return `
-                    const fflate = require('fflate');
-                    const compressed = require("./${filename}");
+                    import { decompressSync } from 'fflate';
+                    import compressed from "./${filename}";
                     console.log(compressed.length);
                     let buff = Buffer.from(compressed, 'base64');
-                    const decompressed = fflate.decompressSync(buff);
+                    const decompressed = decompressSync(buff);
                     module.exports = decompressed;
                 `;
             },
