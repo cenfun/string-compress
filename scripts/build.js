@@ -84,7 +84,7 @@ const compressItem = async (item) => {
     for (const util of utils) {
         console.log(`compress ${item.filename} with ${util.name} ...`);
 
-        const time_start = Date.now();
+        let time_start = Date.now();
         const compressed = util.compress(fileStr);
 
         const filename = `${item.filename}-${util.name}`;
@@ -100,6 +100,9 @@ const compressItem = async (item) => {
 
         const outfile = await buildItem(util, srcPath);
 
+        const duration = Date.now() - time_start;
+        time_start = Date.now();
+
         const stat = fs.statSync(outfile);
         const size = compressed.length;
         const distSize = stat.size;
@@ -108,14 +111,15 @@ const compressItem = async (item) => {
         console.log(fileStr.length, decompressed.length, filename);
         console.assert(fileStr === decompressed);
 
-        const duration = Date.now() - time_start;
+        const time = Date.now() - time_start;
 
         subs.push({
             name: util.name,
             size,
             duration,
             distSize,
-            jsSize: distSize - size
+            jsSize: distSize - size,
+            time
         });
     }
 
@@ -156,7 +160,7 @@ const build = async () => {
             name: 'name'
         }, {
             id: 'duration',
-            name: 'duration',
+            name: 'c time',
             align: 'right',
             formatter: (v) => {
                 if (v) {
@@ -191,6 +195,16 @@ const build = async () => {
             formatter: (v) => {
                 if (v) {
                     return v.toLocaleString();
+                }
+                return v;
+            }
+        }, {
+            id: 'time',
+            name: 'd time',
+            align: 'right',
+            formatter: (v) => {
+                if (v) {
+                    return `${v.toLocaleString()} ms`;
                 }
                 return v;
             }
