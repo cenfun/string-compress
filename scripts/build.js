@@ -43,6 +43,8 @@ const compressItem = async (item) => {
         fs.mkdirSync(srcDir);
     }
 
+    // https://developer.mozilla.org/en-US/docs/Glossary/Base64
+
     const utils = [
         {
             name: 'lz-utils',
@@ -69,7 +71,8 @@ const compressItem = async (item) => {
                     import { decompressSync } from 'fflate';
                     import compressed from "./${filename}";
                     console.log(compressed.length);
-                    let buff = Buffer.from(compressed, 'base64');
+                    import { b64ToU8a } from "../scripts/b64-to-u8a.js";
+                    let buff = b64ToU8a(compressed);
                     const decompressed = decompressSync(buff);
                     module.exports = decompressed;
                 `;
