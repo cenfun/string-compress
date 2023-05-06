@@ -10,12 +10,13 @@
         "string-compress"
     ],
     "dependencies": {
-        "console-grid": "^2.0.1",
-        "esbuild": "^0.17.18",
         "fflate": "^0.7.4",
         "lz-utils": "^1.0.7"
     },
     "devDependencies": {
+        "@playwright/test": "^1.33.0",
+        "console-grid": "^2.0.1",
+        "esbuild": "^0.17.18",
         "eslint": "^8.31.0",
         "eslint-config-plus": "^1.0.5",
         "eslint-plugin-html": "^7.1.0"
