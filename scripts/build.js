@@ -6,12 +6,25 @@ const esbuild = require('esbuild');
 const lz = require('lz-utils');
 const fflate = require('fflate');
 
-const buildItem = async (util, srcPath) => {
+const hasOwn = function(obj, key) {
+    return Object.prototype.hasOwnProperty.call(obj, key);
+};
 
-    const distDir = path.resolve(__dirname, '../dist');
-    if (!fs.existsSync(distDir)) {
-        fs.mkdirSync(distDir);
+const replace = function(str, obj) {
+    str = `${str}`;
+    if (!obj) {
+        return str;
     }
+    str = str.replace(/\{([^}{]+)\}/g, function(match, key) {
+        if (!hasOwn(obj, key)) {
+            return match;
+        }
+        return obj[key];
+    });
+    return str;
+};
+
+const buildItem = async (util, srcPath, distDir) => {
 
     const outfile = path.resolve(distDir, `${util.filename}.js`);
 
@@ -21,7 +34,7 @@ const buildItem = async (util, srcPath) => {
         minify: true,
         metafile: true,
         bundle: true,
-        format: 'cjs',
+        // format: 'cjs',
         legalComments: 'none',
         target: 'node16',
         platform: 'node'
@@ -34,27 +47,59 @@ const buildItem = async (util, srcPath) => {
     return outfile;
 };
 
+const saveHtml = (util, distDir) => {
+    const template = fs.readFileSync(path.resolve(__dirname, './template.html')).toString('utf-8');
+    const html = replace(template, {
+        title: util.filename,
+        content: `<script src="${util.filename}.js"></script>`
+    });
+
+    fs.writeFileSync(path.resolve(distDir, `${util.filename}.html`), html);
+
+};
+
+const initDirs = () => {
+    const dirs = {
+        srcDir: 'src',
+        distDir: 'dist'
+    };
+    Object.keys(dirs).forEach((k) => {
+        const dir = path.resolve(__dirname, `../${dirs[k]}`);
+        if (fs.existsSync(dir)) {
+            fs.rmSync(dir, {
+                recursive: true,
+                force: true
+            });
+        }
+        fs.mkdirSync(dir);
+        dirs[k] = dir;
+    });
+    return dirs;
+};
+
 const compressItem = async (item) => {
 
-    const fileStr = fs.readFileSync(item.path).toString('utf-8');
+    const {
+        jsonName, jsonPath, srcDir, distDir
+    } = item;
 
-    const srcDir = path.resolve(__dirname, '../src');
-    if (!fs.existsSync(srcDir)) {
-        fs.mkdirSync(srcDir);
-    }
+    const fileStr = fs.readFileSync(jsonPath).toString('utf-8');
 
     // https://developer.mozilla.org/en-US/docs/Glossary/Base64
 
     const utils = [
         {
-            name: 'lz-utils',
+            name: 'lz',
             compress: lz.compress,
             src: (filename) => {
                 return `
                     import { decompress } from 'lz-utils';
                     import compressed from "./${filename}";
                     console.log(compressed.length);
-                    module.exports = decompress(compressed);
+                    const time_start = Date.now();
+                    const res = decompress(compressed);
+                    console.log("duration", Date.now() - time_start);
+                    console.log(JSON.parse(res));
                 `;
             },
             decompress: lz.decompress
@@ -68,13 +113,22 @@ const compressItem = async (item) => {
             },
             src: (filename) => {
                 return `
-                    import { decompressSync } from 'fflate';
-                    import compressed from "./${filename}";
-                    console.log(compressed.length);
-                    import { b64ToU8a } from "../scripts/b64-to-u8a.js";
-                    let buff = b64ToU8a(compressed);
-                    const decompressed = decompressSync(buff);
-                    module.exports = decompressed;
+                    import { decompressSync } from 'fflate/browser';
+                    import compressedB64 from "./${filename}";
+
+                    import { b64ToU8a, uint8ArrToString } from "../scripts/b64-to-u8a.js";
+
+                    console.log(compressedB64.length);
+                    
+                    const time_start = Date.now();
+
+                    const buff = b64ToU8a(compressedB64);
+                    const res = decompressSync(buff);
+                    const encodedString = uint8ArrToString(res);
+
+                    console.log("duration", Date.now() - time_start);
+
+                    console.log(JSON.parse(encodedString));
                 `;
             },
             decompress: (str) => {
@@ -85,12 +139,12 @@ const compressItem = async (item) => {
 
     const subs = [];
     for (const util of utils) {
-        console.log(`compress ${item.filename} with ${util.name} ...`);
+        console.log(`compress ${jsonName} with ${util.name} ...`);
 
         let time_start = Date.now();
         const compressed = util.compress(fileStr);
 
-        const filename = `${item.filename}-${util.name}`;
+        const filename = `${path.basename(jsonName, path.extname(jsonName))}-${util.name}`;
         util.filename = filename;
 
         const dataPath = path.resolve(srcDir, `${filename}.data.js`);
@@ -101,7 +155,7 @@ const compressItem = async (item) => {
         const srcPath = path.resolve(srcDir, `${filename}.src.js`);
         fs.writeFileSync(srcPath, srcStr);
 
-        const outfile = await buildItem(util, srcPath);
+        const outfile = await buildItem(util, srcPath, distDir);
 
         const duration = Date.now() - time_start;
         time_start = Date.now();
@@ -110,11 +164,10 @@ const compressItem = async (item) => {
         const size = compressed.length;
         const distSize = stat.size;
 
-        const decompressed = require(outfile);
-        console.log(fileStr.length, decompressed.length, filename);
-        console.assert(fileStr === decompressed);
-
         const time = Date.now() - time_start;
+
+        // decompress in browser
+        saveHtml(util, distDir);
 
         subs.push({
             name: util.name,
@@ -127,7 +180,7 @@ const compressItem = async (item) => {
     }
 
     return {
-        name: item.filename,
+        name: jsonName,
         size: fileStr.length,
         duration: '',
         subs
@@ -135,6 +188,9 @@ const compressItem = async (item) => {
 };
 
 const build = async () => {
+
+    const { srcDir, distDir } = initDirs();
+
     const jsonDir = path.resolve(__dirname, '../json');
     const list = fs.readdirSync(jsonDir);
 
@@ -142,10 +198,12 @@ const build = async () => {
 
     const rows = [];
     let i = 0;
-    for (const filename of list) {
+    for (const jsonName of list) {
         const row = await compressItem({
-            filename,
-            path: path.resolve(jsonDir, filename)
+            jsonName,
+            jsonPath: path.resolve(jsonDir, jsonName),
+            srcDir,
+            distDir
         });
 
         rows.push(row);

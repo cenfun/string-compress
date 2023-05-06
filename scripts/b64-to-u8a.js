@@ -31,3 +31,7 @@ export function b64ToU8a(sBase64, nBlocksSize) {
 
     return taBytes;
 }
+
+export function uint8ArrToString(uint8arr) {
+    return new TextDecoder().decode(uint8arr);
+}
