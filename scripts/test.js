@@ -110,10 +110,51 @@ const initDirs = () => {
     return dirs;
 };
 
+const addColor = (subs) => {
+    const keys = ['b64Size', 'jsSize', 'distSize', 'cTime', 'dTime'];
+
+    keys.forEach((k) => {
+        const values = subs.map((item) => item[k]);
+        const max = Math.max(... values);
+        const min = Math.min(... values);
+
+        const isTime = ['cTime', 'dTime'].includes(k) ? ' ms' : '';
+
+        subs.forEach((item) => {
+            const v = item[k];
+
+            if (typeof item.score !== 'number') {
+                item.score = 0;
+            }
+
+            if (v === max) {
+                item[k] = EC.red(v.toLocaleString() + isTime);
+                item.score -= 1;
+            } else if (v === min) {
+                item[k] = EC.green(v.toLocaleString() + isTime);
+                item.score += 1;
+            }
+        });
+    });
+
+    const scores = subs.map((item) => item.score);
+    const max = Math.max(... scores);
+    const min = Math.min(... scores);
+    subs.forEach((item) => {
+        const score = item.score;
+        if (score === max) {
+            item.name = EC.green(item.name);
+        } else if (score === min) {
+            item.name = EC.red(item.name);
+        }
+    });
+
+};
+
 const compressItem = async (item) => {
 
     const {
-        jsonName, jsonPath, srcDir, distDir, browser
+        index, jsonName, jsonPath, srcDir, distDir, browser
     } = item;
 
     // https://developer.mozilla.org/en-US/docs/Glossary/Base64
@@ -339,8 +380,10 @@ const compressItem = async (item) => {
         });
     }
 
+    addColor(subs);
+
     return {
-        name: `case: ${jsonName}`,
+        name: `case ${index + 1}: ${jsonName}`,
         rawSize,
         subs
     };
@@ -360,6 +403,7 @@ const build = async () => {
     let i = 0;
     for (const jsonName of list) {
         const row = await compressItem({
+            index: i,
             jsonName,
             jsonPath: path.resolve(jsonDir, jsonName),
             srcDir,
