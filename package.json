@@ -1,13 +1,13 @@
 {
-    "name": "string-compress",
+    "name": "string-compression",
     "version": "1.0.0",
-    "description": "string-compress",
+    "description": "string-compression",
     "main": "",
     "scripts": {
         "test": "node scripts/test.js"
     },
     "keywords": [
-        "string-compress"
+        "string-compression"
     ],
     "dependencies": {
         "fflate": "^0.7.4",
