@@ -4,7 +4,7 @@
     "description": "string-compress",
     "main": "",
     "scripts": {
-        "build": "node scripts/build.js"
+        "test": "node scripts/test.js"
     },
     "keywords": [
         "string-compress"

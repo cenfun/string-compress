@@ -1,3 +1,5 @@
+// https://developer.mozilla.org/en-US/docs/Glossary/Base64
+
 // eslint-disable-next-line complexity
 function b64ToUint6(nChr) {
     // eslint-disable-next-line no-nested-ternary
