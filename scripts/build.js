@@ -7,6 +7,7 @@ const { chromium } = require('@playwright/test');
 
 const lz = require('lz-utils');
 const fflate = require('fflate');
+const uzip = require('uzip');
 const pako = require('pako');
 const zlib = require('zlib');
 
@@ -159,6 +160,38 @@ const compressItem = async (item) => {
 
                     const buff = b64ToU8a(compressedB64);
                     const u8a = decompressSync(buff);
+                    const res = uint8ArrToString(u8a);
+
+                    const duration = Date.now() - time_start;
+                    console.log(duration);
+
+                    window.decompressed = {
+                        duration,
+                        value: res
+                    };
+
+                    console.log(JSON.parse(res));
+                `;
+            }
+        },
+        {
+            name: 'uzip',
+            compress: (str) => {
+                const buf = Buffer.from(str);
+                const compressed = uzip.deflateRaw(buf);
+                return Buffer.from(compressed).toString('base64');
+            },
+            src: (filename) => {
+                return `
+                    import { inflateRaw } from 'uzip';
+                    import compressedB64 from "./${filename}";
+
+                    import { b64ToU8a, uint8ArrToString } from "../scripts/b64-to-u8a.js";
+                    
+                    const time_start = Date.now();
+
+                    const buff = b64ToU8a(compressedB64);
+                    const u8a = inflateRaw(buff);
                     const res = uint8ArrToString(u8a);
 
                     const duration = Date.now() - time_start;
