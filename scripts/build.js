@@ -88,7 +88,7 @@ const decompressItem = async (item) => {
         fs.writeFileSync(path.resolve(distDir, `${filename}.decompressed`), decompressed.value);
     }
 
-    return decompressed.duration;
+    return decompressed.time;
 };
 
 const initDirs = () => {
@@ -130,11 +130,11 @@ const compressItem = async (item) => {
                     const time_start = Date.now();
                     const res = decompress(compressed);
 
-                    const duration = Date.now() - time_start;
-                    console.log(duration);
+                    const time = Date.now() - time_start;
+                    console.log(time);
 
                     window.decompressed = {
-                        duration,
+                        time,
                         value: res
                     };
 
@@ -162,11 +162,11 @@ const compressItem = async (item) => {
                     const u8a = decompressSync(buff);
                     const res = uint8ArrToString(u8a);
 
-                    const duration = Date.now() - time_start;
-                    console.log(duration);
+                    const time = Date.now() - time_start;
+                    console.log(time);
 
                     window.decompressed = {
-                        duration,
+                        time,
                         value: res
                     };
 
@@ -194,11 +194,11 @@ const compressItem = async (item) => {
                     const u8a = inflateRaw(buff);
                     const res = uint8ArrToString(u8a);
 
-                    const duration = Date.now() - time_start;
-                    console.log(duration);
+                    const time = Date.now() - time_start;
+                    console.log(time);
 
                     window.decompressed = {
-                        duration,
+                        time,
                         value: res
                     };
 
@@ -224,11 +224,11 @@ const compressItem = async (item) => {
                     const buff = b64ToU8a(compressedB64);
                     const res = inflate(buff, { to: 'string' });
 
-                    const duration = Date.now() - time_start;
-                    console.log(duration);
+                    const time = Date.now() - time_start;
+                    console.log(time);
 
                     window.decompressed = {
-                        duration,
+                        time,
                         value: res
                     };
 
@@ -241,7 +241,7 @@ const compressItem = async (item) => {
             compress: (str) => {
                 const buf = Buffer.from(str);
                 const length = buf.length;
-                console.log('buffer length', length, 'string length', str.length);
+                // console.log('buffer length', length, 'string length', str.length);
                 const compressed = zlib.deflateRawSync(buf);
                 const b64 = Buffer.from(compressed).toString('base64');
                 return `${length},${b64}`;
@@ -269,11 +269,11 @@ const compressItem = async (item) => {
 
                     const res = uint8ArrToString(outputBuffer);
 
-                    const duration = Date.now() - time_start;
-                    //console.log(duration);
+                    const time = Date.now() - time_start;
+                    //console.log(time);
 
                     window.decompressed = {
-                        duration,
+                        time,
                         value: res
                     };
 
@@ -286,6 +286,7 @@ const compressItem = async (item) => {
     ];
 
     const fileStr = fs.readFileSync(jsonPath).toString('utf-8');
+    const rawSize = fileStr.length;
 
     const subs = [];
     for (const util of utils) {
@@ -307,15 +308,15 @@ const compressItem = async (item) => {
 
         const outfile = await buildItem(util, srcPath, distDir);
 
-        const duration = Date.now() - time_start;
+        const cTime = Date.now() - time_start;
 
         const stat = fs.statSync(outfile);
-        const size = compressed.length;
+        const b64Size = compressed.length;
         const distSize = stat.size;
 
         // decompress in browser
         const htmlPath = saveHtml(util, distDir);
-        const time = await decompressItem({
+        const dTime = await decompressItem({
             filename,
             htmlPath,
             distDir,
@@ -323,20 +324,24 @@ const compressItem = async (item) => {
             browser
         });
 
+        const percent = ((distSize - rawSize) / rawSize * 100).toFixed(1);
+
         subs.push({
             name: util.name,
-            size,
-            duration,
+
+            rawSize: `${percent} %`,
+            b64Size,
             distSize,
-            jsSize: distSize - size,
-            time
+            jsSize: distSize - b64Size,
+
+            cTime,
+            dTime
         });
     }
 
     return {
         name: jsonName,
-        size: fileStr.length,
-        duration: '',
+        rawSize,
         subs
     };
 };
@@ -378,21 +383,21 @@ const build = async () => {
             id: 'name',
             name: 'name'
         }, {
-            id: 'duration',
-            name: 'c time',
+            id: 'rawSize',
+            name: 'raw size',
             align: 'right',
             formatter: (v) => {
-                if (v) {
-                    return `${v.toLocaleString()} ms`;
+                if (typeof v === 'number') {
+                    return v.toLocaleString();
                 }
                 return v;
             }
         }, {
-            id: 'size',
-            name: '(b64) size',
+            id: 'b64Size',
+            name: 'b64 size',
             align: 'right',
             formatter: (v) => {
-                if (v) {
+                if (typeof v === 'number') {
                     return v.toLocaleString();
                 }
                 return v;
@@ -402,7 +407,7 @@ const build = async () => {
             name: 'dist size',
             align: 'right',
             formatter: (v) => {
-                if (v) {
+                if (typeof v === 'number') {
                     return v.toLocaleString();
                 }
                 return v;
@@ -412,17 +417,27 @@ const build = async () => {
             name: 'js size',
             align: 'right',
             formatter: (v) => {
-                if (v) {
+                if (typeof v === 'number') {
                     return v.toLocaleString();
                 }
                 return v;
             }
         }, {
-            id: 'time',
+            id: 'cTime',
+            name: 'c time',
+            align: 'right',
+            formatter: (v) => {
+                if (typeof v === 'number') {
+                    return `${v.toLocaleString()} ms`;
+                }
+                return v;
+            }
+        }, {
+            id: 'dTime',
             name: 'd time',
             align: 'right',
             formatter: (v) => {
-                if (v) {
+                if (typeof v === 'number') {
                     return `${v.toLocaleString()} ms`;
                 }
                 return v;
