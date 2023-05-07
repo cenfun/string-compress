@@ -285,7 +285,7 @@ const compressItem = async (item) => {
                 // console.log('buffer length', length, 'string length', str.length);
                 const compressed = zlib.deflateRawSync(buf);
                 const b64 = Buffer.from(compressed).toString('base64');
-                return `${length},${b64}`;
+                return `${b64}.${length}`;
             },
             src: (filename) => {
                 return `
@@ -296,16 +296,9 @@ const compressItem = async (item) => {
                     
                     const time_start = Date.now();
 
-                    const list = compressedB64.split(",");
-                
-                    const decompressedSize = parseInt(list[0]);
-
-                    //console.log("list length", list.length, "decompressedSize", decompressedSize);
-
-                    const b64 = list[1];
-
-                    const compressedBuffer = base64ToUint8(b64);
-                    const outputBuffer = new Uint8Array(decompressedSize);
+                    const [b64Str, sizeStr] = compressedB64.split(".");
+                    const compressedBuffer = base64ToUint8(b64Str);
+                    const outputBuffer = new Uint8Array(parseInt(sizeStr));
                     inflate(compressedBuffer, outputBuffer);
 
                     const res = uint8ArrToString(outputBuffer);
