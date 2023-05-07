@@ -1,11 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 const CG = require('console-grid');
+const EC = require('eight-colors');
 const esbuild = require('esbuild');
 const { chromium } = require('@playwright/test');
 
 const lz = require('lz-utils');
 const fflate = require('fflate');
+const pako = require('pako');
+const zlib = require('zlib');
 
 const hasOwn = function(obj, key) {
     return Object.prototype.hasOwnProperty.call(obj, key);
@@ -60,7 +63,11 @@ const saveHtml = (util, distDir) => {
     return htmlPath;
 };
 
-const decompressItem = async (htmlPath, fileStr, browser) => {
+const decompressItem = async (item) => {
+
+    const {
+        filename, htmlPath, distDir, fileStr, browser
+    } = item;
 
     const page = await browser.newPage();
     const watcher = page.waitForFunction(() => window.decompressed);
@@ -73,7 +80,12 @@ const decompressItem = async (htmlPath, fileStr, browser) => {
 
     await page.close();
 
-    console.assert(decompressed.value === fileStr);
+    if (decompressed.value === fileStr) {
+        EC.logGreen(`${filename} matched`);
+    } else {
+        EC.logRed(`${filename} unmatched`);
+        fs.writeFileSync(path.resolve(distDir, `${filename}.decompressed`), decompressed.value);
+    }
 
     return decompressed.duration;
 };
@@ -117,8 +129,11 @@ const compressItem = async (item) => {
                     const time_start = Date.now();
                     const res = decompress(compressed);
 
+                    const duration = Date.now() - time_start;
+                    console.log(duration);
+
                     window.decompressed = {
-                        duration: Date.now() - time_start,
+                        duration,
                         value: res
                     };
 
@@ -146,10 +161,90 @@ const compressItem = async (item) => {
                     const u8a = decompressSync(buff);
                     const res = uint8ArrToString(u8a);
 
+                    const duration = Date.now() - time_start;
+                    console.log(duration);
+
                     window.decompressed = {
-                        duration: Date.now() - time_start,
+                        duration,
                         value: res
                     };
+
+                    console.log(JSON.parse(res));
+                `;
+            }
+        },
+        {
+            name: 'pako',
+            compress: (str) => {
+                const compressed = pako.deflate(str);
+                return Buffer.from(compressed).toString('base64');
+            },
+            src: (filename) => {
+                return `
+                    import { inflate } from 'pako';
+                    import compressedB64 from "./${filename}";
+
+                    import { b64ToU8a } from "../scripts/b64-to-u8a.js";
+                    
+                    const time_start = Date.now();
+
+                    const buff = b64ToU8a(compressedB64);
+                    const res = inflate(buff, { to: 'string' });
+
+                    const duration = Date.now() - time_start;
+                    console.log(duration);
+
+                    window.decompressed = {
+                        duration,
+                        value: res
+                    };
+
+                    console.log(JSON.parse(res));
+                `;
+            }
+        },
+        {
+            name: 'tiny',
+            compress: (str) => {
+                const buf = Buffer.from(str);
+                const length = buf.length;
+                console.log('buffer length', length, 'string length', str.length);
+                const compressed = zlib.deflateRawSync(buf);
+                const b64 = Buffer.from(compressed).toString('base64');
+                return `${length},${b64}`;
+            },
+            src: (filename) => {
+                return `
+                    import inflate from 'tiny-inflate';
+                    import compressedB64 from "./${filename}";
+
+                    import { b64ToU8a, uint8ArrToString } from "../scripts/b64-to-u8a.js";
+                    
+                    const time_start = Date.now();
+
+                    const list = compressedB64.split(",");
+                
+                    const decompressedSize = parseInt(list[0]);
+
+                    //console.log("list length", list.length, "decompressedSize", decompressedSize);
+
+                    const b64 = list[1];
+
+                    const compressedBuffer = b64ToU8a(b64);
+                    const outputBuffer = new Uint8Array(decompressedSize);
+                    inflate(compressedBuffer, outputBuffer);
+
+                    const res = uint8ArrToString(outputBuffer);
+
+                    const duration = Date.now() - time_start;
+                    //console.log(duration);
+
+                    window.decompressed = {
+                        duration,
+                        value: res
+                    };
+
+                    //console.log(res);
 
                     console.log(JSON.parse(res));
                 `;
@@ -166,7 +261,7 @@ const compressItem = async (item) => {
         const time_start = Date.now();
         const compressed = util.compress(fileStr);
 
-        const filename = `${path.basename(jsonName, path.extname(jsonName))}-${util.name}`;
+        const filename = `${util.name}-${jsonName}`;
         util.filename = filename;
 
         const dataPath = path.resolve(srcDir, `${filename}.data.js`);
@@ -187,7 +282,13 @@ const compressItem = async (item) => {
 
         // decompress in browser
         const htmlPath = saveHtml(util, distDir);
-        const time = await decompressItem(htmlPath, fileStr, browser);
+        const time = await decompressItem({
+            filename,
+            htmlPath,
+            distDir,
+            fileStr,
+            browser
+        });
 
         subs.push({
             name: util.name,
@@ -255,7 +356,7 @@ const build = async () => {
             }
         }, {
             id: 'size',
-            name: 's size',
+            name: '(b64) size',
             align: 'right',
             formatter: (v) => {
                 if (v) {
