@@ -195,11 +195,11 @@ const compressItem = async (item) => {
                     import { decompressSync } from 'fflate/browser';
                     import compressedB64 from "./${filename}";
 
-                    import { b64ToU8a, uint8ArrToString } from "../scripts/b64-to-u8a.js";
+                    import { base64ToUint8, uint8ArrToString } from "../scripts/b64-to-u8a.js";
                     
                     const time_start = Date.now();
 
-                    const buff = b64ToU8a(compressedB64);
+                    const buff = base64ToUint8(compressedB64);
                     const u8a = decompressSync(buff);
                     const res = uint8ArrToString(u8a);
 
@@ -227,11 +227,11 @@ const compressItem = async (item) => {
                     import { inflateRaw } from 'uzip';
                     import compressedB64 from "./${filename}";
 
-                    import { b64ToU8a, uint8ArrToString } from "../scripts/b64-to-u8a.js";
+                    import { base64ToUint8, uint8ArrToString } from "../scripts/b64-to-u8a.js";
                     
                     const time_start = Date.now();
 
-                    const buff = b64ToU8a(compressedB64);
+                    const buff = base64ToUint8(compressedB64);
                     const u8a = inflateRaw(buff);
                     const res = uint8ArrToString(u8a);
 
@@ -258,11 +258,11 @@ const compressItem = async (item) => {
                     import { inflate } from 'pako';
                     import compressedB64 from "./${filename}";
 
-                    import { b64ToU8a } from "../scripts/b64-to-u8a.js";
+                    import { base64ToUint8 } from "../scripts/b64-to-u8a.js";
                     
                     const time_start = Date.now();
 
-                    const buff = b64ToU8a(compressedB64);
+                    const buff = base64ToUint8(compressedB64);
                     const res = inflate(buff, { to: 'string' });
 
                     const time = Date.now() - time_start;
@@ -292,7 +292,7 @@ const compressItem = async (item) => {
                     import inflate from 'tiny-inflate';
                     import compressedB64 from "./${filename}";
 
-                    import { b64ToU8a, uint8ArrToString } from "../scripts/b64-to-u8a.js";
+                    import { base64ToUint8, uint8ArrToString } from "../scripts/b64-to-u8a.js";
                     
                     const time_start = Date.now();
 
@@ -304,7 +304,7 @@ const compressItem = async (item) => {
 
                     const b64 = list[1];
 
-                    const compressedBuffer = b64ToU8a(b64);
+                    const compressedBuffer = base64ToUint8(b64);
                     const outputBuffer = new Uint8Array(decompressedSize);
                     inflate(compressedBuffer, outputBuffer);
 

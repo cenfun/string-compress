@@ -1,3 +1,8 @@
+export const base64ToUint8 = (str) => Uint8Array.from(window.atob(str), (c) => c.charCodeAt(0));
+
+export const uint8ArrToString = (uint8arr) => new TextDecoder().decode(uint8arr);
+
+
 // https://developer.mozilla.org/en-US/docs/Glossary/Base64
 
 // eslint-disable-next-line complexity
@@ -34,6 +39,3 @@ export function b64ToU8a(sBase64, nBlocksSize) {
     return taBytes;
 }
 
-export function uint8ArrToString(uint8arr) {
-    return new TextDecoder().decode(uint8arr);
-}
