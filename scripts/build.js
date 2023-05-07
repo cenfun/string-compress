@@ -120,7 +120,7 @@ const compressItem = async (item) => {
 
     const utils = [
         {
-            name: 'lz',
+            name: 'lz-string',
             compress: lz.compress,
             src: (filename) => {
                 return `
@@ -237,7 +237,7 @@ const compressItem = async (item) => {
             }
         },
         {
-            name: 'tiny',
+            name: 'tiny-inflate',
             compress: (str) => {
                 const buf = Buffer.from(str);
                 const length = buf.length;
@@ -340,7 +340,7 @@ const compressItem = async (item) => {
     }
 
     return {
-        name: jsonName,
+        name: `case: ${jsonName}`,
         rawSize,
         subs
     };
