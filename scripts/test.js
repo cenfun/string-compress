@@ -9,7 +9,6 @@ const lz = require('lz-utils');
 const fflate = require('fflate');
 const uzip = require('uzip');
 const pako = require('pako');
-const zlib = require('zlib');
 
 const hasOwn = function(obj, key) {
     return Object.prototype.hasOwnProperty.call(obj, key);
@@ -39,10 +38,10 @@ const buildItem = async (util, srcPath, distDir) => {
         minify: true,
         metafile: true,
         bundle: true,
-        // format: 'cjs',
+        format: 'iife',
         legalComments: 'none',
-        target: 'node16',
-        platform: 'node'
+        target: ['es2020'],
+        platform: 'browser'
     });
 
     const metafile = result.metafile;
@@ -71,6 +70,7 @@ const decompressItem = async (item) => {
     } = item;
 
     const page = await browser.newPage();
+
     const watcher = page.waitForFunction(() => window.decompressed);
     await page.goto(`file://${path.resolve(htmlPath)}`);
     await watcher;
@@ -165,7 +165,7 @@ const compressItem = async (item) => {
             compress: lz.compress,
             src: (filename) => {
                 return `
-                    import { decompress } from 'lz-utils';
+                    import decompress from 'lz-utils/lib/decompress.js';
                     import compressed from "./${filename}";
 
                     const time_start = Date.now();
@@ -280,28 +280,16 @@ const compressItem = async (item) => {
         {
             name: 'tiny-inflate',
             compress: (str) => {
-                const buf = Buffer.from(str);
-                const length = buf.length;
-                // console.log('buffer length', length, 'string length', str.length);
-                const compressed = zlib.deflateRawSync(buf);
-                const b64 = Buffer.from(compressed).toString('base64');
-                return `${b64}.${length}`;
+                return lz.deflateSync(str);
             },
             src: (filename) => {
                 return `
-                    import inflate from 'tiny-inflate';
+                    import inflateSync from 'lz-utils/inflate-sync';
                     import compressedB64 from "./${filename}";
 
-                    import { base64ToUint8, uint8ArrToString } from "../scripts/b64-to-u8a.js";
-                    
                     const time_start = Date.now();
 
-                    const [b64Str, sizeStr] = compressedB64.split(".");
-                    const compressedBuffer = base64ToUint8(b64Str);
-                    const outputBuffer = new Uint8Array(parseInt(sizeStr));
-                    inflate(compressedBuffer, outputBuffer);
-
-                    const res = uint8ArrToString(outputBuffer);
+                    const res = inflateSync(compressedB64);
 
                     const time = Date.now() - time_start;
                     //console.log(time);
