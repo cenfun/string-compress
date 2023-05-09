@@ -184,24 +184,22 @@ const compressItem = async (item) => {
             }
         },
         {
-            name: 'fflate',
+            name: 'pako',
             compress: (str) => {
-                const buf = fflate.strToU8(str);
-                const compressedString = fflate.compressSync(buf);
-                return Buffer.from(compressedString).toString('base64');
+                const compressed = pako.deflate(str);
+                return Buffer.from(compressed).toString('base64');
             },
             src: (filename) => {
                 return `
-                    import { decompressSync } from 'fflate/browser';
+                    import { inflate } from 'pako';
                     import compressedB64 from "./${filename}";
 
-                    import { base64ToUint8, uint8ArrToString } from "../scripts/b64-to-u8a.js";
+                    import { base64ToUint8 } from "../scripts/b64-to-u8a.js";
                     
                     const time_start = Date.now();
 
                     const buff = base64ToUint8(compressedB64);
-                    const u8a = decompressSync(buff);
-                    const res = uint8ArrToString(u8a);
+                    const res = inflate(buff, { to: 'string' });
 
                     const time = Date.now() - time_start;
                     console.log(time);
@@ -248,22 +246,24 @@ const compressItem = async (item) => {
             }
         },
         {
-            name: 'pako',
+            name: 'fflate',
             compress: (str) => {
-                const compressed = pako.deflate(str);
-                return Buffer.from(compressed).toString('base64');
+                const buf = fflate.strToU8(str);
+                const compressedString = fflate.compressSync(buf);
+                return Buffer.from(compressedString).toString('base64');
             },
             src: (filename) => {
                 return `
-                    import { inflate } from 'pako';
+                    import { decompressSync } from 'fflate/browser';
                     import compressedB64 from "./${filename}";
 
-                    import { base64ToUint8 } from "../scripts/b64-to-u8a.js";
+                    import { base64ToUint8, uint8ArrToString } from "../scripts/b64-to-u8a.js";
                     
                     const time_start = Date.now();
 
                     const buff = base64ToUint8(compressedB64);
-                    const res = inflate(buff, { to: 'string' });
+                    const u8a = decompressSync(buff);
+                    const res = uint8ArrToString(u8a);
 
                     const time = Date.now() - time_start;
                     console.log(time);
@@ -404,6 +404,9 @@ const build = async () => {
     await browser.close();
 
     CG({
+        options: {
+            nullPlaceholder: ''
+        },
         columns: [{
             id: 'name',
             name: 'name'
